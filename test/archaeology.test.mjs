@@ -1,5 +1,7 @@
 // 用一个人造的临时 git 仓库当语料，验证 8 个考古工具都能挖出该挖的事实。
 // 完全离线、可重复：不联网，也不依赖任何真实仓库。
+// 语料放在系统临时目录里，所以在跑之前先把它加进允许根目录（否则会被路径防护拦下）。
+process.env.ARCHAEOLOGY_ROOTS = tmpdir();
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -131,6 +133,15 @@ try {
 }
 check(err2.includes("必须给 path"), "缺必填参数时给出可读错误");
 check(resolveRepo(repo) === repo, "resolveRepo 对绝对路径原样返回");
+
+// 路径逃逸防护：白名单之外的路径必须被拒（Day 13 那条）
+let err3 = "";
+try {
+  recentChanges({ repo: join(tmpdir(), "..", "definitely-not-allowed") });
+} catch (e) {
+  err3 = e.message;
+}
+check(err3.includes("拒绝访问"), "白名单之外的路径被拒（路径逃逸防护生效）");
 
 rmSync(repo, { recursive: true, force: true });
 rmSync(notRepo, { recursive: true, force: true });

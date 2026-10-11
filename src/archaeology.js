@@ -7,7 +7,7 @@
 // 每个工具都返回一段纯文本——agent 读它就像读一份调查报告。
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 
 // git 的字段分隔符：用控制字符，避免和提交信息里的字符冲突
 const F = "\u001f";
@@ -18,10 +18,30 @@ const GIT_TIMEOUT_MS = 20000;
 
 export class ArchaeologyError extends Error {}
 
-/** 把 agent 给的 repo 解析成绝对路径（默认用进程 cwd）。 */
+/** 允许被考古的根目录：默认**只有服务器自己的工作目录**。
+ *  要放开，设环境变量 ARCHAEOLOGY_ROOTS（分号分隔的多个根）。 */
+export function allowedRoots() {
+  const raw = process.env.ARCHAEOLOGY_ROOTS;
+  const roots = (raw ? raw.split(";") : [process.cwd()])
+    .map((r) => resolve(r.trim().replace(/^["']|["']$/g, "")))
+    .filter(Boolean);
+  return roots.length ? roots : [process.cwd()];
+}
+
+/** 把 agent 给的 repo 解析成绝对路径（默认用进程 cwd），并做**路径逃逸防护**：
+ *  只能看白名单根目录以内的仓库。MCP server 不该被模型指到哪就读哪——
+ *  不然一句 `repo=C:\Users\你\.ssh` 就能去翻别人的 git 历史。 */
 export function resolveRepo(repo) {
-  if (!repo) return process.cwd();
-  return isAbsolute(repo) ? repo : resolve(process.cwd(), repo);
+  const abs = !repo ? process.cwd() : isAbsolute(repo) ? repo : resolve(process.cwd(), repo);
+  const roots = allowedRoots();
+  const inside = roots.some((root) => abs === root || abs.startsWith(root.endsWith(sep) ? root : root + sep));
+  if (!inside) {
+    throw new ArchaeologyError(
+      `拒绝访问 ${abs}：它不在允许的根目录内。当前允许：${roots.join(" ; ")}。` +
+        `要考古别的仓库，给服务器设环境变量 ARCHAEOLOGY_ROOTS（分号分隔）。`,
+    );
+  }
+  return abs;
 }
 
 /** 跑一条 git 命令。用 execFile + 数组传参，**不经过 shell**——路径、正则、

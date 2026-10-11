@@ -33,7 +33,12 @@ g("add", "-A");
 g("commit", "-q", "-m", "feat: 引入 MAGIC 常量");
 
 // ── 用原始 JSON-RPC 连服务器 ──
-const proc = spawn(process.execPath, ["server.js"], { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
+// 沙箱语料在系统临时目录里，用环境变量把这层"允许根目录"放给它
+const proc = spawn(process.execPath, ["server.js"], {
+  cwd: root,
+  stdio: ["pipe", "pipe", "pipe"],
+  env: { ...process.env, ARCHAEOLOGY_ROOTS: tmpdir() },
+});
 const rl = createInterface({ input: proc.stdout });
 const pending = new Map();
 let nextId = 1;
