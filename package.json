@@ -1,0 +1,18 @@
+{
+  "name": "codebase-archaeology-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "代码库考古 MCP：让 coding agent 查询代码库的历史与决策（谁改的、什么时候、为什么）",
+  "bin": {
+    "codebase-archaeology-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/archaeology.test.mjs && node test/mcp-protocol.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.5"
+  }
+}
